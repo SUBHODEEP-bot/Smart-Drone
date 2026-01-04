@@ -848,8 +848,15 @@ async function generateDeviceLink() {
             
             // Show link in popup
             showLinkPopup(linkCode, accessUrl);
-            
-            dashboard.addToLog(`Device link generated: ${linkCode}`);
+
+            // Log to dashboard if available
+            try {
+                if (window && window.droneDashboard && typeof window.droneDashboard.addToLog === 'function') {
+                    window.droneDashboard.addToLog(`Device link generated: ${linkCode}`);
+                }
+            } catch (e) {
+                console.warn('Dashboard log unavailable:', e);
+            }
         } else {
             alert('Error: ' + (data.error || 'Could not generate link'));
         }
@@ -1001,3 +1008,34 @@ setInterval(updateConnectedDevices, 5000);
 
 // Initial update
 updateConnectedDevices();
+
+// ========== Dashboard Socket.IO: Receive camera frames from devices ==========
+(function() {
+    try {
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Dashboard connected to Socket.IO server');
+        });
+
+        socket.on('device_camera', (data) => {
+            try {
+                const img = document.getElementById('videoStream');
+                if (!img) return;
+                // data.frame_data is expected to be a data URL like 'data:image/jpeg;base64,...'
+                if (data && data.frame_data) {
+                    img.src = data.frame_data;
+                }
+            } catch (e) {
+                console.error('Error applying device camera frame:', e);
+            }
+        });
+
+        socket.on('device_update', (data) => {
+            // optionally refresh device list immediately
+            updateConnectedDevices();
+        });
+    } catch (e) {
+        console.warn('Socket.IO not available on dashboard:', e);
+    }
+})();

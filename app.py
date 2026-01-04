@@ -33,7 +33,7 @@ app.logger.setLevel(logging.INFO)
 
 # ========== CONFIGURATION ==========
 RTSP_URL = 'rtsp://[MOBILE_IP]:[PORT]/live/stream'
-FALLBACK_TO_WEBCAM = True
+USE_WEBCAM = os.getenv('USE_WEBCAM', 'False').lower() in ('1','true','yes')
 ESP32_IP = "192.168.1.100"
 ESP32_BASE_URL = f"http://{ESP32_IP}/command"
 
@@ -591,8 +591,17 @@ def handle_camera_frame(data):
     
     if device_id in connected_devices:
         device = connected_devices[device_id]
-        device['camera_data'] = data.get('frame_data')
+        frame_data = data.get('frame_data')
+        device['camera_data'] = frame_data
         device['last_heartbeat'] = datetime.now()
+        # Broadcast camera frame to connected dashboards (avoid heavy processing here)
+        try:
+            socketio.emit('device_camera', {
+                'device_id': device_id,
+                'frame_data': frame_data
+            }, broadcast=True)
+        except Exception as e:
+            app.logger.debug(f"Failed to emit device_camera: {e}")
 
 @socketio.on('request_fire_status')
 def handle_fire_status_request(data):
@@ -627,9 +636,13 @@ if __name__ == '__main__':
     app.logger.info("🔥 FIRE DETECTION DRONE SYSTEM WITH REMOTE DEVICE SUPPORT 🔥")
     app.logger.info("=" * 60)
     
-    # Start video thread
-    video_thread = threading.Thread(target=video_capture_thread, daemon=True)
-    video_thread.start()
+    # Start video thread only if server webcam is enabled
+    if USE_WEBCAM:
+        video_thread = threading.Thread(target=video_capture_thread, daemon=True)
+        video_thread.start()
+        app.logger.info("Webcam capture thread started")
+    else:
+        app.logger.info("Webcam disabled (USE_WEBCAM=False). Using remote device streams only.")
     
     # Start device link cleanup thread
     cleanup_thread = threading.Thread(target=cleanup_expired_links, daemon=True)
@@ -638,7 +651,10 @@ if __name__ == '__main__':
     time.sleep(2)
     
     app.logger.info(f"ESP32 IP: {ESP32_IP}")
-    app.logger.info("Using webcam for video")
+    if USE_WEBCAM:
+        app.logger.info("Using webcam for video")
+    else:
+        app.logger.info("Server webcam disabled; expecting remote device streams")
     
     # Get port from environment or default to 5000
     port = int(os.getenv('PORT', 5000))
