@@ -411,47 +411,50 @@
                 if (frameIntervalId) clearInterval(frameIntervalId);
                 if (statusIntervalId) clearInterval(statusIntervalId);
 
-                // Wait for video to load, then start sending frames
-                let framesSent = 0;
-                frameIntervalId = setInterval(() => {
-                    if (!isRegistered) return;
-                    if (!stream) return;
+                // Wait for video to be ready before sending frames
+                video.onloadedmetadata = () => {
+                    console.log('✅ Video loaded:', video.videoWidth, 'x', video.videoHeight);
                     
-                    try {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = video.videoWidth || 640;
-                        canvas.height = video.videoHeight || 480;
+                    // Send camera frames every 500ms
+                    let framesSent = 0;
+                    frameIntervalId = setInterval(() => {
+                        if (!isRegistered || !stream) return;
                         
-                        if (canvas.width === 0 || canvas.height === 0) {
-                            if (framesSent === 0) console.log('⏳ Waiting for video to load...');
-                            return;
-                        }
-                        
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0);
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            
+                            if (canvas.width === 0 || canvas.height === 0) {
+                                return;
+                            }
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0);
 
-                        const frameData = canvas.toDataURL('image/jpeg', 0.7);
-                        if (!frameData || frameData.length < 100) {
-                            console.warn('⚠️ Frame data too small:', frameData.length);
-                            return;
+                            const frameData = canvas.toDataURL('image/jpeg', 0.7);
+                            if (!frameData || frameData.length < 100) {
+                                console.warn('⚠️ Frame too small:', frameData.length);
+                                return;
+                            }
+                            
+                            socket.emit('send_camera_frame', {
+                                device_id: deviceId,
+                                link_code: linkCode,
+                                frame_data: frameData
+                            });
+                            
+                            framesSent++;
+                            if (framesSent % 10 === 0) {
+                                console.log(`📤 Sent ${framesSent} frames (${(frameData.length/1024).toFixed(1)}KB)`);
+                            }
+                        } catch (e) {
+                            console.error('❌ Error sending frame:', e);
                         }
-                        
-                        socket.emit('send_camera_frame', {
-                            device_id: deviceId,
-                            link_code: linkCode,
-                            frame_data: frameData
-                        });
-                        
-                        framesSent++;
-                        if (framesSent % 10 === 0) {
-                            console.log(`📤 Sent ${framesSent} frames (${(frameData.length/1024).toFixed(1)}KB each)`);
-                        }
-                    } catch (e) {
-                        console.error('❌ Error sending frame:', e);
-                    }
-                }, 500);
-
-                // Request fire status every 2 seconds
+                    }, 500);
+                };
+                
+                // Start requesting fire status every 2 seconds
                 statusIntervalId = setInterval(() => {
                     if (isRegistered) {
                         socket.emit('request_fire_status', {
@@ -461,7 +464,7 @@
                     }
                 }, 2000);
                 
-                console.log('✅ Camera started, streaming at', video.videoWidth, 'x', video.videoHeight);
+                console.log('✅ Camera started, waiting for video to load...');
             } catch (error) {
                 console.error('Camera error:', error);
                 alert('Cannot access camera: ' + error.message);
