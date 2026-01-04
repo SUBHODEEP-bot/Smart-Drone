@@ -457,6 +457,10 @@
                 return;
             }
 
+            document.getElementById('latitude').textContent = 'Waiting...';
+            document.getElementById('longitude').textContent = 'Waiting...';
+            document.getElementById('accuracy').textContent = 'Locating...';
+
             gpsWatchId = navigator.geolocation.watchPosition(
                 (position) => {
                     const { latitude, longitude, accuracy } = position.coords;
@@ -475,11 +479,22 @@
                 },
                 (error) => {
                     console.error('GPS error:', error);
-                    alert('GPS error: ' + error.message);
+                    let errorMsg = 'GPS error: ';
+                    if (error.code === 1) {
+                        errorMsg += 'Permission denied. Please enable location access.';
+                        document.getElementById('latitude').textContent = '--';
+                        document.getElementById('longitude').textContent = '--';
+                        document.getElementById('accuracy').textContent = '-- m';
+                    } else if (error.code === 2) {
+                        errorMsg += 'Position unavailable. Try moving to an open area.';
+                    } else if (error.code === 3) {
+                        errorMsg += 'Timeout - location taking too long. Will retry...';
+                    }
+                    console.warn(errorMsg);
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 5000,
+                    timeout: 15000,
                     maximumAge: 0
                 }
             );

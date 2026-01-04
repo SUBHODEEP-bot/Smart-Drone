@@ -1021,10 +1021,14 @@ updateConnectedDevices();
         socket.on('device_camera', (data) => {
             try {
                 const img = document.getElementById('videoStream');
+                const placeholder = document.getElementById('videoPlaceholder');
                 if (!img) return;
+                
                 // data.frame_data is expected to be a data URL like 'data:image/jpeg;base64,...'
                 if (data && data.frame_data) {
                     img.src = data.frame_data;
+                    img.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
                 }
             } catch (e) {
                 console.error('Error applying device camera frame:', e);
@@ -1034,6 +1038,10 @@ updateConnectedDevices();
         socket.on('device_update', (data) => {
             // optionally refresh device list immediately
             updateConnectedDevices();
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Dashboard disconnected from Socket.IO server');
         });
     } catch (e) {
         console.warn('Socket.IO not available on dashboard:', e);
