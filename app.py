@@ -29,7 +29,17 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'drone-fire-detection-secret-key-2024')
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Initialize Socket.IO with proper configuration
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*",
+    async_mode='threading',
+    ping_timeout=60,
+    ping_interval=25,
+    logger=True,
+    engineio_logger=False
+)
 app.logger.setLevel(logging.INFO)
 
 # ========== CONFIGURATION ==========
@@ -722,7 +732,7 @@ if __name__ == '__main__':
         app,
         host=host,
         port=port,
-        debug=debug,
-        allow_unsafe_werkzeug=True,
-        use_reloader=False
+        debug=False,
+        use_reloader=False,
+        log_output=True
     )
