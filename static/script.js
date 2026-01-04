@@ -1019,6 +1019,8 @@ window.dashboardSocket = null;
 
         socket.on('connect', () => {
             console.log('✅ Dashboard connected to Socket.IO server (SID:', socket.id, ')');
+            // Join the dashboard room to receive device frames
+            socket.emit('join_dashboard');
         });
 
         socket.on('device_camera', (data) => {
