@@ -1011,6 +1011,7 @@ updateConnectedDevices();
 
 // ========== Dashboard Socket.IO: Receive camera frames from devices ==========
 window.dashboardSocket = null;
+let frameCounter = 0;
 
 (function() {
     try {
@@ -1018,17 +1019,16 @@ window.dashboardSocket = null;
         window.dashboardSocket = socket;  // Store for debugging
 
         socket.on('connect', () => {
-            console.log('✅ Dashboard connected to Socket.IO server (SID:', socket.id, ')');
-            // Join the dashboard room to receive device frames
-            socket.emit('join_dashboard', {}, (response) => {
-                console.log('✅ Dashboard room joined:', response);
-            });
+            console.log('✅ Dashboard connected to Socket.IO server');
+            console.log('   SID:', socket.id);
+            console.log('   URL:', socket.io.engine.transport.opts.hostname);
         });
 
         socket.on('device_camera', (data) => {
+            frameCounter++;
+            console.log(`📹 [${frameCounter}] Received device_camera from:`, data.device_name || data.device_id);
+            
             try {
-                console.log('📹 Received device_camera event from:', data.device_name || data.device_id);
-                
                 const img = document.getElementById('videoStream');
                 const placeholder = document.getElementById('videoPlaceholder');
                 
@@ -1037,18 +1037,24 @@ window.dashboardSocket = null;
                     return;
                 }
                 
-                // data.frame_data is expected to be a data URL like 'data:image/jpeg;base64,...'
-                if (data && data.frame_data) {
+                if (data && data.frame_data && data.frame_data.length > 100) {
                     img.src = data.frame_data;
                     img.style.display = 'block';
                     if (placeholder) placeholder.style.display = 'none';
-                    console.log('✓ Frame displayed (size:', (data.frame_data.length / 1024).toFixed(1), 'KB)');
+                    
+                    if (frameCounter % 5 === 0) {
+                        console.log(`✓ [${frameCounter}] Frame displayed (${(data.frame_data.length / 1024).toFixed(1)}KB)`);
+                    }
                 } else {
-                    console.error('❌ No frame_data in event:', data);
+                    console.error('❌ Invalid frame data:', data.frame_data ? data.frame_data.length : 'null');
                 }
             } catch (e) {
-                console.error('❌ Error applying device camera frame:', e);
+                console.error('❌ Error applying frame:', e);
             }
+        });
+
+        socket.on('status', (data) => {
+            console.log('Status:', data);
         });
 
         socket.on('device_update', (data) => {
@@ -1057,13 +1063,20 @@ window.dashboardSocket = null;
         });
         
         socket.on('disconnect', () => {
-            console.log('❌ Dashboard disconnected from Socket.IO server');
+            console.log('❌ Dashboard disconnected');
         });
         
         socket.on('error', (error) => {
             console.error('⚠️ Socket.IO error:', error);
         });
+        
+        // Log all events (for debugging)
+        socket.onAny((event, ...args) => {
+            if (event !== 'device_camera') {
+                console.log(`[EVENT] ${event}:`, args);
+            }
+        });
     } catch (e) {
-        console.warn('⚠️ Socket.IO not available on dashboard:', e);
+        console.warn('⚠️ Socket.IO initialization error:', e);
     }
 })();

@@ -498,6 +498,7 @@ def get_devices():
 @app.route('/api/test-frame')
 def test_frame():
     """Test endpoint to send a test frame to dashboard (for debugging)"""
+    print("[TEST] Sending test frame to all clients...")
     # Create a simple test image
     test_img = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.putText(test_img, "TEST FRAME", (150, 240),
@@ -507,13 +508,14 @@ def test_frame():
     frame_data = 'data:image/jpeg;base64,' + str(base64.b64encode(jpeg.tobytes()).decode('utf-8'))
     
     socketio.emit('device_camera', {
-        'device_id': 'test',
-        'device_name': 'TEST',
+        'device_id': 'test-device',
+        'device_name': 'TEST FRAME',
         'frame_data': frame_data,
         'timestamp': datetime.now().isoformat()
-    }, room='dashboard')
+    }, broadcast=True)
     
-    return jsonify({'message': 'Test frame sent to dashboard'})
+    print(f"[TEST] ✓ Test frame broadcast to all clients ({len(frame_data)/1024:.1f}KB)")
+    return jsonify({'message': 'Test frame sent to all connected clients'})
 
 @app.route('/device/<link_code>')
 def device_interface(link_code):
@@ -554,14 +556,16 @@ def handle_connect():
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""
-    app.logger.info(f'Client connected: {request.sid}')
+    app.logger.info(f'✅ Client connected: {request.sid}')
+    print(f"[CONNECT] Client {request.sid} connected")
 
 @socketio.on('join_dashboard')
 def handle_join_dashboard():
     """Join dashboard to receive device frames"""
     join_room('dashboard')
-    app.logger.info(f'Client {request.sid} joined dashboard room')
-    emit('status', {'message': 'Joined dashboard room'})
+    app.logger.info(f'✅ Client {request.sid} joined dashboard room')
+    print(f"[DASHBOARD] Client {request.sid} joined dashboard room")
+    emit('status', {'message': 'Joined dashboard room', 'sid': request.sid})
 
 @socketio.on('register_device')
 def handle_register_device(data):
@@ -571,6 +575,7 @@ def handle_register_device(data):
     
     device_id = validate_device_link(link_code)
     if not device_id:
+        print(f"[REGISTER] ❌ Invalid link: {link_code}")
         emit('error', {'message': 'Invalid link'})
         return
     
@@ -585,6 +590,7 @@ def handle_register_device(data):
         'message': f'Device {device_name} registered successfully'
     })
     
+    print(f"[REGISTER] ✅ Device '{device_name}' registered (ID: {device_id[:8]}...)")
     app.logger.info(f'Device {device_name} registered with ID: {device_id}')
 
 @socketio.on('send_gps')
@@ -619,8 +625,9 @@ def handle_camera_frame(data):
     device_id = data.get('device_id')
     link_code = data.get('link_code')
     
-    if not validate_device_link(link_code):
-        app.logger.warning(f"Invalid link_code: {link_code}")
+    validated_device_id = validate_device_link(link_code)
+    if not validated_device_id:
+        print(f"[FRAME] ❌ Invalid link_code: {link_code}")
         return
     
     if device_id in connected_devices:
@@ -628,24 +635,25 @@ def handle_camera_frame(data):
         frame_data = data.get('frame_data')
         device['camera_data'] = frame_data
         device['last_heartbeat'] = datetime.now()
-        # Broadcast camera frame to connected dashboards (avoid heavy processing here)
+        
+        frame_size_kb = len(frame_data) / 1024 if frame_data else 0
+        print(f"[FRAME] 📥 Received {frame_size_kb:.1f}KB from {device.get('device_name')} ({device_id[:8]}...)")
+        
+        # Broadcast to ALL clients (use broadcast to reach all dashboards)
         try:
-            frame_size_kb = len(frame_data) / 1024 if frame_data else 0
-            app.logger.info(f"📤 Received frame from {device.get('device_name')} ({device_id[:8]}...) - {frame_size_kb:.1f}KB")
-            
-            # Send to all dashboard clients in the 'dashboard' room
             socketio.emit('device_camera', {
                 'device_id': device_id,
                 'device_name': device.get('device_name', 'Unknown'),
                 'frame_data': frame_data,
                 'timestamp': datetime.now().isoformat()
-            }, room='dashboard')  # Send only to dashboard room
+            }, broadcast=True, include_self=False)
             
-            app.logger.debug(f"✓ Emitted frame to dashboard room")
+            print(f"[FRAME] 📤 ✓ Broadcasted frame to all clients")
         except Exception as e:
-            app.logger.error(f"❌ Failed to emit device_camera: {e}")
+            print(f"[FRAME] ❌ Failed to broadcast: {e}")
+            app.logger.error(f"Failed to emit device_camera: {e}")
     else:
-        app.logger.warning(f"Device {device_id} not found in connected_devices")
+        print(f"[FRAME] ❌ Device {device_id} not found")
 
 @socketio.on('request_fire_status')
 def handle_fire_status_request(data):
