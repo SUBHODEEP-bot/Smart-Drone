@@ -633,6 +633,8 @@ def handle_gps_data(data):
 @socketio.on('send_camera_frame')
 def handle_camera_frame(data):
     """Receive camera frame from remote device"""
+    global fire_detected, fire_confidence, fire_location, detection_status
+    
     device_id = data.get('device_id')
     link_code = data.get('link_code')
     
@@ -650,7 +652,37 @@ def handle_camera_frame(data):
         frame_size_kb = len(frame_data) / 1024 if frame_data else 0
         print(f"[FRAME] 📥 Received {frame_size_kb:.1f}KB from {device.get('device_name')} ({device_id[:8]}...)")
         
-        # Broadcast to ALL clients using local emit() function
+        # Decode and process frame for fire detection
+        try:
+            # Remove data URL prefix and decode base64
+            if isinstance(frame_data, str) and frame_data.startswith('data:image'):
+                base64_str = frame_data.split(',')[1]
+            else:
+                base64_str = frame_data
+            
+            frame_bytes = base64.b64decode(base64_str)
+            nparr = np.frombuffer(frame_bytes, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if frame is not None and frame.shape[0] > 0:
+                # Run fire detection on the frame
+                detected, confidence, location = detect_fire_simple(frame)
+                
+                # Update global fire detection status
+                fire_detected = detected
+                fire_confidence = confidence
+                fire_location = location
+                
+                if detected:
+                    print(f"[DETECTION] 🔥 FIRE DETECTED on {device.get('device_name')}! Confidence: {confidence:.1f}%")
+                    detection_status = f"🔥 FIRE DETECTED - {device.get('device_name')}"
+                else:
+                    detection_status = "Monitoring..."
+            
+        except Exception as e:
+            print(f"[FRAME] ⚠️ Error processing frame: {e}")
+        
+        # Broadcast camera frame to all clients
         try:
             emit('device_camera', {
                 'device_id': device_id,
