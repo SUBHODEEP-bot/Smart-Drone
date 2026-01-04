@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Device - Fire Detection System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #ff4444;
+            --secondary-color: #00ff88;
+            --bg-dark: #0a0e27;
+            --bg-darker: #050812;
+            --border-color: #1a2f5a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+            color: var(--text-primary);
+            font-family: 'Roboto', sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 10px;
+        }
+
+        .header {
+            background: rgba(10, 14, 39, 0.95);
+            border: 2px solid var(--border-color);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            padding: 8px 15px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid var(--secondary-color);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+
+        .main-content {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .camera-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: rgba(10, 14, 39, 0.8);
+            overflow: hidden;
+        }
+
+        .camera-container {
+            flex: 1;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #cameraStream {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-footer {
+            padding: 10px;
+            background: rgba(5, 8, 18, 0.9);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 68, 68, 0.1);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .btn:hover {
+            background: rgba(255, 68, 68, 0.3);
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--secondary-color);
+            color: var(--secondary-color);
+        }
+
+        .btn-primary:hover {
+            background: rgba(0, 255, 136, 0.4);
+        }
+
+        .sidebar {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .info-card {
+            background: rgba(10, 14, 39, 0.8);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .info-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+            font-size: 0.95rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+        }
+
+        .info-value {
+            color: var(--secondary-color);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 500;
+        }
+
+        .fire-alert {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .device-name-input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .device-name-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .status-live {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            animation: blink 0.6s infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes blink {
+            0%, 50% {
+                opacity: 1;
+            }
+            51%, 100% {
+                opacity: 0.3;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-mobile-alt"></i>
+                REMOTE DEVICE
+            </h1>
+            <div class="status-badge" id="connectionStatus">
+                <span class="status-live"></span>
+                Connecting...
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Camera Section -->
+            <div class="camera-section">
+                <div class="camera-container">
+                    <video id="cameraStream" playsinline autoplay muted></video>
+                </div>
+                <div class="camera-footer">
+                    <button class="btn btn-primary" onclick="startCamera()">
+                        <i class="fas fa-camera"></i> Start Camera
+                    </button>
+                    <button class="btn" onclick="stopCamera()">
+                        <i class="fas fa-stop"></i> Stop Camera
+                    </button>
+                    <button class="btn" onclick="toggleFullscreen()">
+                        <i class="fas fa-expand"></i> Fullscreen
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Device Info -->
+                <div class="info-card">
+                    <h3><i class="fas fa-info-circle"></i> Device Setup</h3>
+                    <input type="text" class="device-name-input" id="deviceName" placeholder="Enter device name">
+                    <button class="btn btn-primary" onclick="registerDevice()" style="width: 100%; margin-top: 5px;">
+                        <i class="fas fa-check"></i> Register Device
+                    </button>
+                </div>
+
+                <!-- Fire Detection Status -->
+                <div class="info-card" id="fireStatusCard" style="flex: 1; min-height: 0;">
+                    <h3><i class="fas fa-fire"></i> Fire Detection</h3>
+                    <div id="fireAlert" class="fire-alert hidden">
+                        🚨 FIRE DETECTED! 🚨
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="fireStatus">Scanning...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Confidence:</span>
+                        <span class="info-value" id="fireConfidence">--%</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Drone Status:</span>
+                        <span class="info-value" id="droneStatus">IDLE</span>
+                    </div>
+                </div>
+
+                <!-- GPS Info -->
+                <div class="info-card">
+                    <h3><i class="fas fa-location-dot"></i> GPS Data</h3>
+                    <div class="info-item">
+                        <span class="info-label">Latitude:</span>
+                        <span class="info-value" id="latitude">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Longitude:</span>
+                        <span class="info-value" id="longitude">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Accuracy:</span>
+                        <span class="info-value" id="accuracy">-- m</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="startGPS()" style="width: 100%; margin-top: 10px;">
+                        <i class="fas fa-satellite"></i> Start GPS
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const linkCode = '{{ link_code }}';
+        let socket = null;
+        let deviceId = null;
+        let stream = null;
+        let gpsWatchId = null;
+        let isRegistered = false;
+
+        // Initialize Socket.IO connection
+        function initSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                updateConnectionStatus('Connected', 'var(--secondary-color)');
+            });
+
+            socket.on('registered', (data) => {
+                deviceId = data.device_id;
+                isRegistered = true;
+                console.log('Device registered:', deviceId);
+                alert('Device registered successfully!');
+                startCamera();
+            });
+
+            socket.on('fire_status', (data) => {
+                updateFireStatus(data);
+            });
+
+            socket.on('device_update', (data) => {
+                if (data.device_id === deviceId) {
+                    console.log('Device update received:', data);
+                }
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus('Disconnected', 'var(--primary-color)');
+                console.log('Disconnected from server');
+            });
+
+            socket.on('error', (error) => {
+                console.error('Socket error:', error);
+                alert('Connection error: ' + error.message);
+            });
+        }
+
+        // Register device
+        function registerDevice() {
+            const deviceName = document.getElementById('deviceName').value || 'Mobile Device';
+
+            if (!socket) {
+                alert('Socket not initialized');
+                return;
+            }
+
+            socket.emit('register_device', {
+                link_code: linkCode,
+                device_name: deviceName
+            });
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+
+                const video = document.getElementById('cameraStream');
+                video.srcObject = stream;
+
+                // Send camera frames every 500ms
+                setInterval(() => {
+                    if (isRegistered && stream) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0);
+
+                        const frameData = canvas.toDataURL('image/jpeg', 0.7);
+                        socket.emit('send_camera_frame', {
+                            device_id: deviceId,
+                            link_code: linkCode,
+                            frame_data: frameData
+                        });
+                    }
+                }, 500);
+
+                // Request fire status every 2 seconds
+                setInterval(() => {
+                    if (isRegistered) {
+                        socket.emit('request_fire_status', {
+                            device_id: deviceId,
+                            link_code: linkCode
+                        });
+                    }
+                }, 2000);
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('Cannot access camera: ' + error.message);
+            }
+        }
+
+        // Stop camera
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('cameraStream').srcObject = null;
+            }
+        }
+
+        // Start GPS
+        function startGPS() {
+            if (!navigator.geolocation) {
+                alert('Geolocation not supported');
+                return;
+            }
+
+            if (!isRegistered) {
+                alert('Please register device first');
+                return;
+            }
+
+            gpsWatchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+
+                    document.getElementById('latitude').textContent = latitude.toFixed(6);
+                    document.getElementById('longitude').textContent = longitude.toFixed(6);
+                    document.getElementById('accuracy').textContent = accuracy.toFixed(0) + ' m';
+
+                    socket.emit('send_gps', {
+                        device_id: deviceId,
+                        link_code: linkCode,
+                        latitude: latitude,
+                        longitude: longitude,
+                        accuracy: accuracy
+                    });
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    alert('GPS error: ' + error.message);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Update fire status display
+        function updateFireStatus(data) {
+            const fireStatus = document.getElementById('fireStatus');
+            const fireConfidence = document.getElementById('fireConfidence');
+            const droneStatus = document.getElementById('droneStatus');
+            const fireAlert = document.getElementById('fireAlert');
+
+            if (data.fire_detected) {
+                fireStatus.textContent = 'FIRE DETECTED!';
+                fireStatus.style.color = 'var(--primary-color)';
+                fireConfidence.textContent = data.fire_confidence.toFixed(0) + '%';
+                fireAlert.classList.remove('hidden');
+            } else {
+                fireStatus.textContent = 'Scanning - No Fire';
+                fireStatus.style.color = 'var(--secondary-color)';
+                fireConfidence.textContent = '0%';
+                fireAlert.classList.add('hidden');
+            }
+
+            droneStatus.textContent = data.drone_status || 'IDLE';
+        }
+
+        // Update connection status
+        function updateConnectionStatus(text, color) {
+            const status = document.getElementById('connectionStatus');
+            status.innerHTML = `<span class="status-live"></span> ${text}`;
+            status.style.color = color;
+        }
+
+        // Toggle fullscreen
+        function toggleFullscreen() {
+            const video = document.getElementById('cameraStream');
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            }
+        }
+
+        // Initialize on page load
+        window.onload = () => {
+            initSocket();
+        };
+    </script>
+</body>
+</html>

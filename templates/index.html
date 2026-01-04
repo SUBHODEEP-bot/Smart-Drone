@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Drone Fire Detection System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="logo">
+                <i class="fas fa-fire"></i>
+                <h1>DRONE FIRE DETECTION SYSTEM</h1>
+            </div>
+            <div class="system-status">
+                <div class="status-indicator" id="systemStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">INITIALIZING</span>
+                </div>
+                <div class="datetime" id="currentDateTime">
+                    Loading...
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Panel: Video Feed -->
+            <div class="video-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-video"></i> LIVE VIDEO FEED</h2>
+                    <div class="video-controls">
+                        <button class="btn-control" id="recordBtn">
+                            <i class="fas fa-circle"></i> REC
+                        </button>
+                        <button class="btn-control" id="snapshotBtn">
+                            <i class="fas fa-camera"></i> SNAP
+                        </button>
+                    </div>
+                </div>
+                <div class="video-container">
+                    <img src="{{ url_for('video_feed') }}" alt="Live Video Feed" id="videoStream" 
+                         onerror="this.onerror=null; this.src=''; this.style.display='none'; document.getElementById('videoError').style.display='block';">
+                    <div id="videoError" style="display: none; padding: 2rem; text-align: center; color: var(--text-secondary);">
+                        <i class="fas fa-video-slash" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <h3>Video Stream Not Available</h3>
+                        <p>Please check camera connection</p>
+                    </div>
+                    <div class="video-overlay" id="videoOverlay">
+                        <div class="overlay-text" id="overlayText">LIVE FEED</div>
+                    </div>
+                </div>
+                <div class="video-info">
+                    <div class="info-item">
+                        <span class="info-label">Resolution:</span>
+                        <span class="info-value">640×480</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">FPS:</span>
+                        <span class="info-value" id="fpsCounter">30</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="streamStatus">Active</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Controls & Status -->
+            <div class="control-panel">
+                <!-- Fire Detection Status -->
+                <div class="status-card fire-status">
+                    <div class="card-header">
+                        <h3><i class="fas fa-fire-extinguisher"></i> FIRE DETECTION</h3>
+                        <div class="status-badge" id="fireStatusBadge">
+                            <i class="fas fa-search"></i> SCANNING
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Model Info Display -->
+                        <div class="model-info" id="modelInfo">
+                            <i class="fas fa-brain"></i> <span id="modelStatus">Loading detection model...</span>
+                        </div>
+                        
+                        <div class="status-display" id="fireStatusDisplay">
+                            <div class="status-icon">
+                                <i class="fas fa-search" id="fireIcon"></i>
+                            </div>
+                            <div class="status-details">
+                                <h4 id="fireStatusText">Initializing Fire Detection...</h4>
+                                <p class="status-subtext" id="fireLocationText">
+                                    <i class="fas fa-map-marker-alt"></i> Coordinates: --, --
+                                </p>
+                                <p class="status-subtext" id="fireConfidenceText">
+                                    <i class="fas fa-chart-line"></i> Confidence: --%
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- YOLOv8 Sensitivity Controls -->
+                        <div class="yolo-controls">
+                            <h5><i class="fas fa-sliders-h"></i> Detection Sensitivity</h5>
+                            <div class="sensitivity-slider">
+                                <span class="slider-label">Low</span>
+                                <input type="range" id="confidenceSlider" min="10" max="90" value="60" 
+                                       class="slider">
+                                <span class="slider-label">High</span>
+                                <span id="confidenceValue" class="confidence-value">60%</span>
+                            </div>
+                            <div class="slider-help">
+                                Adjust sensitivity to reduce false positives
+                            </div>
+                        </div>
+
+                        <!-- Detection History -->
+                        <div class="status-history">
+                            <h5><i class="fas fa-history"></i> DETECTION HISTORY</h5>
+                            <div class="history-list" id="detectionHistory">
+                                <div class="history-item">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>System Started</span>
+                                        <span style="color: var(--success-color);">✓</span>
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                        Fire detection system initialized
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drone Control Panel -->
+                <div class="status-card drone-control">
+                    <div class="card-header">
+                        <h3><i class="fas fa-drone"></i> DRONE CONTROLS</h3>
+                        <div class="status-badge" id="droneStatusBadge">
+                            <i class="fas fa-pause-circle"></i> IDLE
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="drone-status-display">
+                            <div class="status-grid">
+                                <div class="status-item">
+                                    <span class="status-label"><i class="fas fa-battery-three-quarters"></i> Battery:</span>
+                                    <span class="status-value" id="batteryLevel">100%</span>
+                                    <div class="battery-bar">
+                                        <div class="battery-fill" id="batteryFill" style="width: 100%;"></div>
+                                    </div>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label"><i class="fas fa-mountain"></i> Altitude:</span>
+                                    <span class="status-value" id="altitude">0 m</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label"><i class="fas fa-wifi"></i> Signal:</span>
+                                    <span class="status-value" id="signalStrength">100%</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label"><i class="fas fa-satellite"></i> GPS:</span>
+                                    <span class="status-value" id="gpsStatus">12 Sats</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Control Buttons -->
+                        <div class="control-buttons">
+                            <div class="button-row">
+                                <button class="btn-command btn-takeoff" onclick="sendCommand('TAKE_OFF')">
+                                    <i class="fas fa-rocket"></i>
+                                    <span>TAKE OFF</span>
+                                </button>
+                                <button class="btn-command btn-land" onclick="sendCommand('LAND')">
+                                    <i class="fas fa-landmark"></i>
+                                    <span>LAND</span>
+                                </button>
+                            </div>
+                            <div class="button-row">
+                                <button class="btn-command btn-fire" onclick="sendCommand('MOVE_TO_FIRE')">
+                                    <i class="fas fa-fire"></i>
+                                    <span>MOVE TO FIRE</span>
+                                </button>
+                                <button class="btn-command command-home" onclick="sendCommand('RETURN_HOME')">
+                                    <i class="fas fa-home"></i>
+                                    <span>RETURN HOME</span>
+                                </button>
+                            </div>
+                            <div class="button-row">
+                                <button class="btn-command btn-emergency" onclick="sendCommand('EMERGENCY_STOP')">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>EMERGENCY STOP</span>
+                                </button>
+                                <button class="btn-command btn-idle" onclick="sendCommand('IDLE')">
+                                    <i class="fas fa-pause"></i>
+                                    <span>IDLE MODE</span>
+                                </button>
+                            </div>
+                            <div class="button-row">
+                                <button class="btn-command" onclick="generateDeviceLink()" style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 200, 100, 0.2)); border-color: #00ff88;">
+                                    <i class="fas fa-link"></i>
+                                    <span>GENERATE LINK</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Command Log -->
+                        <div class="command-log">
+                            <h5><i class="fas fa-terminal"></i> COMMAND LOG</h5>
+                            <div class="log-container" id="commandLog">
+                                <div class="log-entry">[00:00:00] System initialized and ready</div>
+                                <div class="log-entry">[00:00:00] Fire detection system started</div>
+                                <div class="log-entry">[00:00:00] Waiting for video stream...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connected Devices Panel -->
+                <div class="status-card system-info">
+                    <div class="card-header">
+                        <h3><i class="fas fa-mobile-alt"></i> CONNECTED DEVICES</h3>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);" id="deviceCount">0 devices</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="devicesList">
+                            <p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">
+                                <i class="fas fa-inbox"></i> No devices connected
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Information -->
+                <div class="status-card system-info">
+                    <div class="card-header">
+                        <h3><i class="fas fa-microchip"></i> SYSTEM INFO</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <i class="fas fa-server"></i>
+                                <div>
+                                    <span class="info-label">Backend:</span>
+                                    <span class="info-value">Flask Python</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-eye"></i>
+                                <div>
+                                    <span class="info-label">Detection:</span>
+                                    <span class="info-value" id="detectionType">YOLOv8</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-robot"></i>
+                                <div>
+                                    <span class="info-label">ESP32 IP:</span>
+                                    <span class="info-value">192.168.1.100</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-stream"></i>
+                                <div>
+                                    <span class="info-label">Video:</span>
+                                    <span class="info-value" id="videoSource">Webcam</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-code"></i>
+                                <div>
+                                    <span class="info-label">Version:</span>
+                                    <span class="info-value">v2.0</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <div>
+                                    <span class="info-label">Status:</span>
+                                    <span class="info-value" id="systemHealth">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Stats -->
+                        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">Frames Processed:</span>
+                                <span style="font-family: 'Orbitron';" id="framesProcessed">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">Detection Time:</span>
+                                <span style="font-family: 'Orbitron';" id="detectionTime">0 ms</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <p><i class="fas fa-shield-alt"></i> Autonomous Fire Detection System v2.0</p>
+                </div>
+                <div class="footer-section">
+                    <p><i class="fas fa-sync-alt"></i> Last Updated: <span id="lastUpdateTime">--:--:--</span></p>
+                </div>
+                <div class="footer-section">
+                    <p><i class="fas fa-heartbeat"></i> System Uptime: <span id="systemUptime">00:00:00</span></p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
