@@ -517,14 +517,15 @@ def test_frame():
     ret, jpeg = cv2.imencode('.jpg', test_img)
     frame_data = 'data:image/jpeg;base64,' + str(base64.b64encode(jpeg.tobytes()).decode('utf-8'))
     
+    # Use socketio.emit() from server context
     socketio.emit('device_camera', {
         'device_id': 'test-device',
         'device_name': 'TEST FRAME',
         'frame_data': frame_data,
         'timestamp': datetime.now().isoformat()
-    }, broadcast=True)
+    }, namespace='/')
     
-    print(f"[TEST] ✓ Test frame broadcast to all clients ({len(frame_data)/1024:.1f}KB)")
+    print(f"[TEST] ✓ Test frame sent to all clients ({len(frame_data)/1024:.1f}KB)")
     return jsonify({'message': 'Test frame sent to all connected clients'})
 
 @app.route('/device/<link_code>')
@@ -649,14 +650,14 @@ def handle_camera_frame(data):
         frame_size_kb = len(frame_data) / 1024 if frame_data else 0
         print(f"[FRAME] 📥 Received {frame_size_kb:.1f}KB from {device.get('device_name')} ({device_id[:8]}...)")
         
-        # Broadcast to ALL clients (use broadcast to reach all dashboards)
+        # Broadcast to ALL clients using local emit() function
         try:
-            socketio.emit('device_camera', {
+            emit('device_camera', {
                 'device_id': device_id,
                 'device_name': device.get('device_name', 'Unknown'),
                 'frame_data': frame_data,
                 'timestamp': datetime.now().isoformat()
-            }, broadcast=True, include_self=False)
+            }, broadcast=True)
             
             print(f"[FRAME] 📤 ✓ Broadcasted frame to all clients")
         except Exception as e:
