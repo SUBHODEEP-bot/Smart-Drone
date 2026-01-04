@@ -411,26 +411,43 @@
                 if (frameIntervalId) clearInterval(frameIntervalId);
                 if (statusIntervalId) clearInterval(statusIntervalId);
 
-                // Send camera frames every 500ms
+                // Wait for video to load, then start sending frames
+                let framesSent = 0;
                 frameIntervalId = setInterval(() => {
-                    if (isRegistered && stream && video.videoWidth > 0) {
-                        try {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(video, 0, 0);
-
-                            const frameData = canvas.toDataURL('image/jpeg', 0.7);
-                            socket.emit('send_camera_frame', {
-                                device_id: deviceId,
-                                link_code: linkCode,
-                                frame_data: frameData
-                            });
-                            console.log('📤 Sent frame from camera');
-                        } catch (e) {
-                            console.error('Error sending frame:', e);
+                    if (!isRegistered) return;
+                    if (!stream) return;
+                    
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth || 640;
+                        canvas.height = video.videoHeight || 480;
+                        
+                        if (canvas.width === 0 || canvas.height === 0) {
+                            if (framesSent === 0) console.log('⏳ Waiting for video to load...');
+                            return;
                         }
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0);
+
+                        const frameData = canvas.toDataURL('image/jpeg', 0.7);
+                        if (!frameData || frameData.length < 100) {
+                            console.warn('⚠️ Frame data too small:', frameData.length);
+                            return;
+                        }
+                        
+                        socket.emit('send_camera_frame', {
+                            device_id: deviceId,
+                            link_code: linkCode,
+                            frame_data: frameData
+                        });
+                        
+                        framesSent++;
+                        if (framesSent % 10 === 0) {
+                            console.log(`📤 Sent ${framesSent} frames (${(frameData.length/1024).toFixed(1)}KB each)`);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error sending frame:', e);
                     }
                 }, 500);
 

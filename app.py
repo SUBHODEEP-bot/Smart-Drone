@@ -13,6 +13,7 @@ import uuid
 import string
 import random
 import os
+import base64
 from flask import Flask, render_template, Response, jsonify, request, session
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -493,6 +494,26 @@ def get_devices():
         'devices': devices_list,
         'total_devices': len(devices_list)
     })
+
+@app.route('/api/test-frame')
+def test_frame():
+    """Test endpoint to send a test frame to dashboard (for debugging)"""
+    # Create a simple test image
+    test_img = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(test_img, "TEST FRAME", (150, 240),
+               cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+    
+    ret, jpeg = cv2.imencode('.jpg', test_img)
+    frame_data = 'data:image/jpeg;base64,' + str(base64.b64encode(jpeg.tobytes()).decode('utf-8'))
+    
+    socketio.emit('device_camera', {
+        'device_id': 'test',
+        'device_name': 'TEST',
+        'frame_data': frame_data,
+        'timestamp': datetime.now().isoformat()
+    }, room='dashboard')
+    
+    return jsonify({'message': 'Test frame sent to dashboard'})
 
 @app.route('/device/<link_code>')
 def device_interface(link_code):
