@@ -1013,70 +1013,71 @@ updateConnectedDevices();
 window.dashboardSocket = null;
 let frameCounter = 0;
 
-(function() {
+console.log('Initializing Socket.IO dashboard listener...');
+
+const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 10
+});
+
+window.dashboardSocket = socket;
+
+socket.on('connect', () => {
+    console.log('✅ Dashboard connected to Socket.IO server');
+    console.log('   SID:', socket.id);
+});
+
+socket.on('device_camera', (data) => {
+    frameCounter++;
+    console.log(`📹 [${frameCounter}] Received device_camera from: ${data.device_name || data.device_id}`);
+    
     try {
-        const socket = io();
-        window.dashboardSocket = socket;  // Store for debugging
-
-        socket.on('connect', () => {
-            console.log('✅ Dashboard connected to Socket.IO server');
-            console.log('   SID:', socket.id);
-            console.log('   URL:', socket.io.engine.transport.opts.hostname);
-        });
-
-        socket.on('device_camera', (data) => {
-            frameCounter++;
-            console.log(`📹 [${frameCounter}] Received device_camera from:`, data.device_name || data.device_id);
+        const img = document.getElementById('videoStream');
+        const placeholder = document.getElementById('videoPlaceholder');
+        
+        if (!img) {
+            console.error('❌ videoStream img element not found');
+            return;
+        }
+        
+        if (data && data.frame_data && data.frame_data.length > 100) {
+            img.src = data.frame_data;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
             
-            try {
-                const img = document.getElementById('videoStream');
-                const placeholder = document.getElementById('videoPlaceholder');
-                
-                if (!img) {
-                    console.error('❌ videoStream img element not found');
-                    return;
-                }
-                
-                if (data && data.frame_data && data.frame_data.length > 100) {
-                    img.src = data.frame_data;
-                    img.style.display = 'block';
-                    if (placeholder) placeholder.style.display = 'none';
-                    
-                    if (frameCounter % 5 === 0) {
-                        console.log(`✓ [${frameCounter}] Frame displayed (${(data.frame_data.length / 1024).toFixed(1)}KB)`);
-                    }
-                } else {
-                    console.error('❌ Invalid frame data:', data.frame_data ? data.frame_data.length : 'null');
-                }
-            } catch (e) {
-                console.error('❌ Error applying frame:', e);
+            if (frameCounter % 5 === 0) {
+                console.log(`✓ Frame ${frameCounter} displayed (${(data.frame_data.length / 1024).toFixed(1)}KB)`);
             }
-        });
-
-        socket.on('status', (data) => {
-            console.log('Status:', data);
-        });
-
-        socket.on('device_update', (data) => {
-            console.log('Device updated:', data);
-            updateConnectedDevices();
-        });
-        
-        socket.on('disconnect', () => {
-            console.log('❌ Dashboard disconnected');
-        });
-        
-        socket.on('error', (error) => {
-            console.error('⚠️ Socket.IO error:', error);
-        });
-        
-        // Log all events (for debugging)
-        socket.onAny((event, ...args) => {
-            if (event !== 'device_camera') {
-                console.log(`[EVENT] ${event}:`, args);
-            }
-        });
+        } else {
+            console.error('❌ Invalid frame data');
+        }
     } catch (e) {
-        console.warn('⚠️ Socket.IO initialization error:', e);
+        console.error('❌ Error applying frame:', e);
     }
-})();
+});
+
+socket.on('status', (data) => {
+    console.log('Status received:', data);
+});
+
+socket.on('device_update', (data) => {
+    console.log('Device update:', data);
+    updateConnectedDevices();
+});
+
+socket.on('disconnect', () => {
+    console.log('❌ Disconnected from server');
+});
+
+socket.on('error', (error) => {
+    console.error('⚠️ Socket.IO error:', error);
+});
+
+socket.onAny((event, ...args) => {
+    if (!event.startsWith('ping')) {
+        console.log(`[EVENT] ${event}:`, args[0]);
+    }
+});
