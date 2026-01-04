@@ -339,6 +339,8 @@
         let stream = null;
         let gpsWatchId = null;
         let isRegistered = false;
+        let frameIntervalId = null;
+        let statusIntervalId = null;
 
         // Initialize Socket.IO connection
         function initSocket() {
@@ -352,7 +354,7 @@
             socket.on('registered', (data) => {
                 deviceId = data.device_id;
                 isRegistered = true;
-                console.log('Device registered:', deviceId);
+                console.log('✅ Device registered:', deviceId);
                 alert('Device registered successfully!');
                 startCamera();
             });
@@ -387,6 +389,7 @@
                 return;
             }
 
+            console.log('Registering device:', deviceName);
             socket.emit('register_device', {
                 link_code: linkCode,
                 device_name: deviceName
@@ -404,26 +407,35 @@
                 const video = document.getElementById('cameraStream');
                 video.srcObject = stream;
 
-                // Send camera frames every 500ms
-                setInterval(() => {
-                    if (isRegistered && stream) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0);
+                // Clear any existing intervals
+                if (frameIntervalId) clearInterval(frameIntervalId);
+                if (statusIntervalId) clearInterval(statusIntervalId);
 
-                        const frameData = canvas.toDataURL('image/jpeg', 0.7);
-                        socket.emit('send_camera_frame', {
-                            device_id: deviceId,
-                            link_code: linkCode,
-                            frame_data: frameData
-                        });
+                // Send camera frames every 500ms
+                frameIntervalId = setInterval(() => {
+                    if (isRegistered && stream && video.videoWidth > 0) {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0);
+
+                            const frameData = canvas.toDataURL('image/jpeg', 0.7);
+                            socket.emit('send_camera_frame', {
+                                device_id: deviceId,
+                                link_code: linkCode,
+                                frame_data: frameData
+                            });
+                            console.log('📤 Sent frame from camera');
+                        } catch (e) {
+                            console.error('Error sending frame:', e);
+                        }
                     }
                 }, 500);
 
                 // Request fire status every 2 seconds
-                setInterval(() => {
+                statusIntervalId = setInterval(() => {
                     if (isRegistered) {
                         socket.emit('request_fire_status', {
                             device_id: deviceId,
@@ -431,6 +443,8 @@
                         });
                     }
                 }, 2000);
+                
+                console.log('✅ Camera started, streaming at', video.videoWidth, 'x', video.videoHeight);
             } catch (error) {
                 console.error('Camera error:', error);
                 alert('Cannot access camera: ' + error.message);

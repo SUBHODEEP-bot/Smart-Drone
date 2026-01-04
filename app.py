@@ -598,10 +598,12 @@ def handle_camera_frame(data):
         try:
             socketio.emit('device_camera', {
                 'device_id': device_id,
+                'device_name': device.get('device_name', 'Unknown'),
                 'frame_data': frame_data
-            }, broadcast=True)
+            }, broadcast=True, skip_sid=request.sid)  # Don't send back to device
+            app.logger.debug(f"Broadcasted frame from device {device_id}")
         except Exception as e:
-            app.logger.debug(f"Failed to emit device_camera: {e}")
+            app.logger.error(f"Failed to emit device_camera: {e}")
 
 @socketio.on('request_fire_status')
 def handle_fire_status_request(data):

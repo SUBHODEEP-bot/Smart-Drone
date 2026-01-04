@@ -1010,40 +1010,56 @@ setInterval(updateConnectedDevices, 5000);
 updateConnectedDevices();
 
 // ========== Dashboard Socket.IO: Receive camera frames from devices ==========
+window.dashboardSocket = null;
+
 (function() {
     try {
         const socket = io();
+        window.dashboardSocket = socket;  // Store for debugging
 
         socket.on('connect', () => {
-            console.log('Dashboard connected to Socket.IO server');
+            console.log('✅ Dashboard connected to Socket.IO server (SID:', socket.id, ')');
         });
 
         socket.on('device_camera', (data) => {
             try {
+                console.log('📹 Received device_camera event from:', data.device_name || data.device_id);
+                
                 const img = document.getElementById('videoStream');
                 const placeholder = document.getElementById('videoPlaceholder');
-                if (!img) return;
+                
+                if (!img) {
+                    console.error('❌ videoStream img element not found');
+                    return;
+                }
                 
                 // data.frame_data is expected to be a data URL like 'data:image/jpeg;base64,...'
                 if (data && data.frame_data) {
                     img.src = data.frame_data;
                     img.style.display = 'block';
                     if (placeholder) placeholder.style.display = 'none';
+                    console.log('✓ Frame displayed (size:', (data.frame_data.length / 1024).toFixed(1), 'KB)');
+                } else {
+                    console.error('❌ No frame_data in event:', data);
                 }
             } catch (e) {
-                console.error('Error applying device camera frame:', e);
+                console.error('❌ Error applying device camera frame:', e);
             }
         });
 
         socket.on('device_update', (data) => {
-            // optionally refresh device list immediately
+            console.log('Device updated:', data);
             updateConnectedDevices();
         });
         
         socket.on('disconnect', () => {
-            console.log('Dashboard disconnected from Socket.IO server');
+            console.log('❌ Dashboard disconnected from Socket.IO server');
+        });
+        
+        socket.on('error', (error) => {
+            console.error('⚠️ Socket.IO error:', error);
         });
     } catch (e) {
-        console.warn('Socket.IO not available on dashboard:', e);
+        console.warn('⚠️ Socket.IO not available on dashboard:', e);
     }
 })();
