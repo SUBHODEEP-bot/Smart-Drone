@@ -1,4 +1,266 @@
 // Autonomous Drone Fire Detection System - Frontend JavaScript
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function applyTacticalScene(scene) {
+    if (!scene) return;
+    if (scene.frame_width && scene.frame_height) {
+        window.lastFrameDims = { w: scene.frame_width, h: scene.frame_height };
+        if (window.droneDashboard) window.droneDashboard.lastFrameDims = window.lastFrameDims;
+    }
+    if (scene.spread) {
+        const card = document.getElementById('spreadCardinal');
+        const det = document.getElementById('spreadDetail');
+        const vec = document.getElementById('spreadVec');
+        if (card) card.textContent = scene.spread.cardinal || '—';
+        if (det) det.textContent = scene.spread.label || '';
+        if (vec && scene.spread.degrees != null) {
+            vec.textContent = `Δ ${scene.spread.dx}, ${scene.spread.dy} px · ${scene.spread.degrees}°`;
+        } else if (vec) vec.textContent = '';
+    }
+    if (Array.isArray(scene.priorities)) {
+        const ol = document.getElementById('actionPriorityList');
+        if (ol) {
+            ol.innerHTML = '';
+            scene.priorities.forEach((p) => {
+                const li = document.createElement('li');
+                const sev = (p.severity || 'medium').toLowerCase();
+                li.className = `p-sev-${sev}`;
+                li.innerHTML = `<strong>${p.action}</strong> — ${p.detail || ''}`;
+                ol.appendChild(li);
+            });
+        }
+    }
+    if (scene.scene_graph) {
+        renderTacticalGraph(scene.scene_graph);
+    }
+    const pm = document.getElementById('personModelBadge');
+    if (pm && scene.person_model) {
+        pm.textContent = scene.person_model === 'yolo' ? 'YOLO person' : scene.person_model === 'hog' ? 'HOG fallback' : '—';
+    }
+    const pcb = document.getElementById('peopleCountBig');
+    if (pcb && scene.people_count != null) pcb.textContent = String(scene.people_count);
+    const pzm = document.getElementById('personZoneMsg');
+    if (pzm) {
+        if (scene.person_in_fire) {
+            pzm.className = 'person-zone-bad';
+            pzm.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Person in / at fire zone — rescue first';
+        } else {
+            pzm.className = 'person-zone-ok';
+            pzm.innerHTML = '<i class="fas fa-check"></i> No person in fire zone';
+        }
+    }
+
+    const fireTypeEl = document.getElementById('fireTypeText');
+    const spreadPredEl = document.getElementById('fireSpreadPredictionText');
+    const riskLevelEl = document.getElementById('fireRiskLevelText');
+    const explosionEl = document.getElementById('fireExplosionText');
+
+    const fireType = scene.fire_type || scene.fireType || scene.fire_type_label || scene.fireTypeLabel || 'Unknown';
+    if (fireTypeEl) fireTypeEl.textContent = `Fire Type: ${fireType}`;
+
+    let predictionText = 'Spread Risk: Awaiting AI prediction (next 20 sec)';
+    const spreadPrediction = scene.spread_prediction || scene.spreadPrediction || scene.prediction || scene.fire_prediction || null;
+    if (typeof spreadPrediction === 'string' && spreadPrediction.trim()) {
+        predictionText = `Spread Risk: ${spreadPrediction}`;
+    } else if (spreadPrediction && typeof spreadPrediction === 'object') {
+        const label = spreadPrediction.label || spreadPrediction.risk || spreadPrediction.level || 'HIGH';
+        const windowSec = spreadPrediction.seconds || spreadPrediction.sec || spreadPrediction.window || 20;
+        predictionText = `Spread Risk: ${label.toString().toUpperCase()} (next ${windowSec} sec)`;
+    }
+    if (spreadPredEl) spreadPredEl.textContent = predictionText;
+
+    const riskLevel = scene.risk_level || scene.riskLevel || scene.threat_level || scene.threatLevel || 'Unknown';
+    if (riskLevelEl) riskLevelEl.textContent = `Risk: ${String(riskLevel).toUpperCase()}`;
+
+    const explosionProb = scene.explosion_probability || scene.explosionProbability || scene.explosion_risk || scene.explosionRisk || null;
+    let explosionText = 'Explosion Probability: —';
+    if (explosionProb != null && !Number.isNaN(Number(explosionProb))) {
+        const value = Number(explosionProb);
+        const formatted = value > 0 && value <= 1 ? value * 100 : value;
+        explosionText = `Explosion Probability: ${Math.round(formatted * 100) / 100}%`;
+    }
+    if (explosionEl) explosionEl.textContent = explosionText;
+
+    const areaBorderText = document.getElementById('areaBorderText');
+    const entryPointText = document.getElementById('entryPointText');
+    const bestEntryText = document.getElementById('bestEntryText');
+    const safePathText = document.getElementById('safePathText');
+    const fireZoneText = document.getElementById('fireZoneText');
+    const personZoneText = document.getElementById('personZoneText');
+    const aiCommandText = document.getElementById('aiCommandText');
+
+    if (areaBorderText) {
+        const label = scene.area_border?.label || 'NOT DETECTED';
+        areaBorderText.textContent = `Area Border: ${label}`;
+    }
+
+    if (entryPointText) {
+        const points = Array.isArray(scene.entry_points) ? scene.entry_points : [];
+        if (points.length) {
+            entryPointText.textContent = `Entry Points: ${points.map(p => `${(p.type || 'unknown').toUpperCase()} ${p.direction || ''}`.trim()).join(' · ')}`;
+        } else {
+            entryPointText.textContent = 'Entry Points: Not found';
+        }
+    }
+
+    if (bestEntryText) {
+        bestEntryText.textContent = `Best Entry: ${scene.best_entry || '—'}`;
+    }
+
+    if (safePathText) {
+        safePathText.textContent = `Safe Path: ${scene.safe_path || '—'}`;
+    }
+
+    const fireTypeText = document.getElementById('fireTypeText');
+    const fireSpreadText = document.getElementById('fireSpreadText');
+    const trappedPersonsText = document.getElementById('trappedPersonsText');
+
+    if (fireZoneText) {
+        fireZoneText.textContent = `Fire: ${scene.fire_side || '—'}`;
+    }
+
+    if (fireTypeText) {
+        fireTypeText.textContent = `Fire Type: ${scene.fire_type || '—'}`;
+    }
+
+    if (fireSpreadText) {
+        fireSpreadText.textContent = `Spread: ${scene.fire_spread || '—'}`;
+    }
+
+    if (personZoneText) {
+        personZoneText.textContent = `Person: ${scene.person_zone || '—'}`;
+    }
+
+    if (trappedPersonsText) {
+        trappedPersonsText.textContent = `Trapped Persons: ${scene.trapped_persons ?? '—'}`;
+    }
+
+    if (aiCommandText) {
+        const commands = Array.isArray(scene.ai_command) ? scene.ai_command : [scene.ai_command].filter(Boolean);
+        aiCommandText.innerHTML = commands.length ? `AI Command: ${commands.join(' · ')}` : 'AI Command: —';
+    }
+}
+
+function renderTacticalGraph(graph) {
+    const svg = document.getElementById('tacticalMapSvg');
+    if (!svg || !graph) return;
+    const nodes = graph.nodes || [];
+    const edges = graph.edges || [];
+    svg.innerHTML = '';
+
+    const size = 100;
+    const padding = 8;
+    const min = padding;
+    const max = size - padding;
+    const span = max - min;
+    const tickCount = 5;
+    const gridColor = '#334155';
+    const labelColor = '#94a3b8';
+
+    const border = document.createElementNS(SVG_NS, 'rect');
+    border.setAttribute('x', String(min));
+    border.setAttribute('y', String(min));
+    border.setAttribute('width', String(span));
+    border.setAttribute('height', String(span));
+    border.setAttribute('fill', 'none');
+    border.setAttribute('stroke', '#475569');
+    border.setAttribute('stroke-width', '0.3');
+    svg.appendChild(border);
+
+    for (let i = 0; i <= tickCount; i++) {
+        const frac = i / tickCount;
+        const pos = min + span * frac;
+
+        const vline = document.createElementNS(SVG_NS, 'line');
+        vline.setAttribute('x1', String(pos));
+        vline.setAttribute('y1', String(min));
+        vline.setAttribute('x2', String(pos));
+        vline.setAttribute('y2', String(max));
+        vline.setAttribute('stroke', gridColor);
+        vline.setAttribute('stroke-width', '0.12');
+        svg.appendChild(vline);
+
+        const hline = document.createElementNS(SVG_NS, 'line');
+        hline.setAttribute('x1', String(min));
+        hline.setAttribute('y1', String(pos));
+        hline.setAttribute('x2', String(max));
+        hline.setAttribute('y2', String(pos));
+        hline.setAttribute('stroke', gridColor);
+        hline.setAttribute('stroke-width', '0.12');
+        svg.appendChild(hline);
+
+        const xLabel = document.createElementNS(SVG_NS, 'text');
+        xLabel.setAttribute('x', String(pos));
+        xLabel.setAttribute('y', String(max + 4));
+        xLabel.setAttribute('fill', labelColor);
+        xLabel.setAttribute('font-size', '3');
+        xLabel.setAttribute('text-anchor', 'middle');
+        xLabel.textContent = frac.toFixed(1);
+        svg.appendChild(xLabel);
+
+        const yLabel = document.createElementNS(SVG_NS, 'text');
+        yLabel.setAttribute('x', String(min - 1));
+        yLabel.setAttribute('y', String(pos + 1.2));
+        yLabel.setAttribute('fill', labelColor);
+        yLabel.setAttribute('font-size', '3');
+        yLabel.setAttribute('text-anchor', 'end');
+        yLabel.textContent = frac.toFixed(1);
+        svg.appendChild(yLabel);
+    }
+
+    const nodeMap = {};
+    nodes.forEach((n) => {
+        nodeMap[n.id] = n;
+        const cx = min + n.x * span;
+        const cy = min + n.y * span;
+
+        const c = document.createElementNS(SVG_NS, 'circle');
+        c.setAttribute('cx', String(cx));
+        c.setAttribute('cy', String(cy));
+        c.setAttribute('r', n.type === 'fire' ? '3.5' : '3');
+        c.setAttribute('fill', n.type === 'fire' ? '#ef4444' : '#22c55e');
+        c.setAttribute('stroke', n.type === 'fire' ? '#fbbf24' : '#86efac');
+        c.setAttribute('stroke-width', '0.4');
+        svg.appendChild(c);
+
+        const labelX = cx + 2 > max ? cx - 2 : cx + 2;
+        const labelY = cy - 4 < min ? cy + 5 : cy - 4;
+        const coordY = cy + 5 > max ? cy - 2 : cy + 5;
+
+        const t = document.createElementNS(SVG_NS, 'text');
+        t.setAttribute('x', String(labelX));
+        t.setAttribute('y', String(labelY));
+        t.setAttribute('fill', '#e2e8f0');
+        t.setAttribute('font-size', '3');
+        t.textContent = (n.label || n.id).slice(0, 16);
+        svg.appendChild(t);
+
+        const coord = document.createElementNS(SVG_NS, 'text');
+        coord.setAttribute('x', String(labelX));
+        coord.setAttribute('y', String(coordY));
+        coord.setAttribute('fill', labelColor);
+        coord.setAttribute('font-size', '2.5');
+        coord.textContent = `(${n.x.toFixed(2)},${n.y.toFixed(2)})`;
+        svg.appendChild(coord);
+    });
+
+    edges.forEach((e) => {
+        const a = nodeMap[e.from];
+        const b = nodeMap[e.to];
+        if (!a || !b) return;
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', String(min + a.x * span));
+        line.setAttribute('y1', String(min + a.y * span));
+        line.setAttribute('x2', String(min + b.x * span));
+        line.setAttribute('y2', String(min + b.y * span));
+        const col = e.risk === 'critical' ? '#f87171' : '#fbbf24';
+        line.setAttribute('stroke', col);
+        line.setAttribute('stroke-width', '0.35');
+        svg.insertBefore(line, svg.firstChild);
+    });
+}
+
 class DroneDashboard {
     constructor() {
         this.initialize();
@@ -14,9 +276,11 @@ class DroneDashboard {
         this.consecutiveFires = 0;
         this.falsePositives = 0;
         this.trueDetections = 0;
+        this.lastFrameDims = { w: 640, h: 480 };
         
         this.updateDateTime();
         this.startStatusUpdates();
+        this.startDetectionHistoryUpdates();
         this.initializeEventListeners();
         this.updateUptime();
         
@@ -95,6 +359,18 @@ class DroneDashboard {
         }
     }
 
+    async startDetectionHistoryUpdates() {
+        while (true) {
+            try {
+                await this.fetchDetectionHistory();
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Update every 5 seconds
+            } catch (error) {
+                console.error('Detection history update failed:', error);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+    }
+
     async updateSystemStatus() {
         try {
             const response = await fetch('/status');
@@ -107,6 +383,27 @@ class DroneDashboard {
             this.updateLastUpdateTime();
             this.updateSystemHealth(data);
             this.updateFrameStats();
+            if (data.spread || data.priorities || data.scene_graph || data.frame_width
+                || typeof data.people_count === 'number' || data.person_model || data.area_border
+                || data.entry_points || data.best_entry || data.safe_path || data.ai_command) {
+                applyTacticalScene({
+                    spread: data.spread,
+                    priorities: data.priorities,
+                    scene_graph: data.scene_graph,
+                    people_count: data.people_count,
+                    person_in_fire: data.person_in_fire,
+                    person_model: data.person_model,
+                    frame_width: data.frame_width,
+                    frame_height: data.frame_height,
+                    area_border: data.area_border,
+                    entry_points: data.entry_points,
+                    best_entry: data.best_entry,
+                    safe_path: data.safe_path,
+                    fire_side: data.fire_side,
+                    person_zone: data.person_zone,
+                    ai_command: data.ai_command,
+                });
+            }
             
         } catch (error) {
             console.error('Failed to fetch status:', error);
@@ -213,6 +510,9 @@ class DroneDashboard {
         confidenceText.className = 'fire-high';
         
         card.classList.add('fire-high-status');
+        
+        // Show fire source details for fire brigade
+        this.showFireSourceDetails(data);
     }
 
     updateMediumConfidenceFire(badge, icon, statusText, locationText, confidenceText, card, data, confidence) {
@@ -228,6 +528,9 @@ class DroneDashboard {
         confidenceText.className = 'fire-medium';
         
         card.classList.add('fire-medium-status');
+        
+        // Show fire source details even for medium confidence
+        this.showFireSourceDetails(data);
     }
 
     updateLowConfidenceFire(badge, icon, statusText, locationText, confidenceText, card, data, confidence) {
@@ -258,6 +561,132 @@ class DroneDashboard {
         confidenceText.className = 'fire-clear';
         
         card.classList.add('fire-clear-status');
+        
+        // Hide fire source details when no fire
+        const sourceDetails = document.getElementById('fireSourceDetails');
+        if (sourceDetails) {
+            sourceDetails.style.display = 'none';
+        }
+    }
+
+    showFireSourceDetails(data) {
+        const sourceDetails = document.getElementById('fireSourceDetails');
+        if (!sourceDetails) return;
+        
+        sourceDetails.style.display = 'block';
+        
+        // Display fire source box coordinates
+        if (data.fire_source_box) {
+            const [x1, y1, x2, y2] = data.fire_source_box;
+            const cx = Math.round((x1 + x2) / 2);
+            const cy = Math.round((y1 + y2) / 2);
+            
+            document.getElementById('fireSourceBox').textContent = 
+                `(${x1}, ${y1}) → (${x2}, ${y2})`;
+            document.getElementById('fireSourceCenter').textContent = 
+                `(${cx}, ${cy})`;
+            
+            // Update visual map with fire marker position
+            this.updateFireLocationMap(x1, y1, x2, y2, cx, cy);
+        }
+        
+        // Display people detection
+        if (data.people_detected && Array.isArray(data.people_detected)) {
+            const peopleCount = data.people_detected.length;
+            const peopleAlert = document.getElementById('peopleAlert');
+            const peopleCountBig = document.getElementById('peopleCountBig');
+            if (peopleCountBig) peopleCountBig.textContent = peopleCount;
+            
+            if (peopleCount > 0) {
+                document.getElementById('peopleCount').textContent = peopleCount;
+                
+                // Show alert if person in fire zone
+                if (data.person_in_fire) {
+                    peopleAlert.style.display = 'block';
+                    peopleAlert.innerHTML = `
+                        <i class="fas fa-exclamation-circle" style="color: #ff0000; margin-right: 0.5rem;"></i>
+                        <strong style="color: #ff0000;">⚠️ PERSON IN FIRE ZONE!</strong>
+                        <div style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+                            <strong>IMMEDIATE ACTION REQUIRED:</strong> Detected ${peopleCount} person(s) very close to fire source!
+                        </div>
+                    `;
+                } else {
+                    peopleAlert.style.display = 'none';
+                }
+            } else {
+                peopleAlert.style.display = 'none';
+            }
+        }
+    }
+
+    updateFireLocationMap(x1, y1, x2, y2, cx, cy) {
+        const mapContainer = document.getElementById('fireLocationMap');
+        const marker = document.getElementById('fireMarker');
+        
+        if (!mapContainer || !marker) return;
+        
+        // Calculate position as percentage of container
+        const width = mapContainer.offsetWidth;
+        const height = mapContainer.offsetHeight;
+        
+        const fw = (window.lastFrameDims && window.lastFrameDims.w) || 640;
+        const fh = (window.lastFrameDims && window.lastFrameDims.h) || 480;
+        const mapX = (cx / fw) * 100;
+        const mapY = (cy / fh) * 100;
+        
+        marker.style.left = `${mapX}%`;
+        marker.style.top = `${mapY}%`;
+        
+        // Draw grid with fire box
+        const svg = document.getElementById('fireMapSvg');
+        if (svg) {
+            svg.innerHTML = '';
+            
+            // Grid lines
+            const gridColor = '#333';
+            for (let i = 0; i <= 5; i++) {
+                const x = (i / 5) * 100;
+                const y = (i / 5) * 100;
+                
+                // Vertical lines
+                const vline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vline.setAttribute('x1', `${x}%`);
+                vline.setAttribute('y1', '0%');
+                vline.setAttribute('x2', `${x}%`);
+                vline.setAttribute('y2', '100%');
+                vline.setAttribute('stroke', gridColor);
+                vline.setAttribute('stroke-width', '1');
+                svg.appendChild(vline);
+                
+                // Horizontal lines
+                const hline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hline.setAttribute('x1', '0%');
+                hline.setAttribute('y1', `${y}%`);
+                hline.setAttribute('x2', '100%');
+                hline.setAttribute('y2', `${y}%`);
+                hline.setAttribute('stroke', gridColor);
+                hline.setAttribute('stroke-width', '1');
+                svg.appendChild(hline);
+            }
+            
+            // Draw fire box (if applicable)
+            const fw = (window.lastFrameDims && window.lastFrameDims.w) || 640;
+            const fh = (window.lastFrameDims && window.lastFrameDims.h) || 480;
+            const boxX1Pct = (x1 / fw) * 100;
+            const boxY1Pct = (y1 / fh) * 100;
+            const boxX2Pct = (x2 / fw) * 100;
+            const boxY2Pct = (y2 / fh) * 100;
+            
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', `${boxX1Pct}%`);
+            rect.setAttribute('y', `${boxY1Pct}%`);
+            rect.setAttribute('width', `${boxX2Pct - boxX1Pct}%`);
+            rect.setAttribute('height', `${boxY2Pct - boxY1Pct}%`);
+            rect.setAttribute('fill', 'none');
+            rect.setAttribute('stroke', '#ff0000');
+            rect.setAttribute('stroke-width', '2');
+            svg.appendChild(rect);
+        }
     }
 
     updateDetectionAccuracy() {
@@ -566,6 +995,80 @@ class DroneDashboard {
         
         // Auto-scroll to bottom
         historyContainer.scrollTop = historyContainer.scrollHeight;
+    }
+
+    async fetchDetectionHistory() {
+        // Fetch detection history from backend and update dashboard
+        try {
+            const response = await fetch('/api/detection_history?limit=50');
+            if (!response.ok) throw new Error('Failed to fetch detection history');
+            
+            const data = await response.json();
+            this.updateDetectionHistoryDisplay(data.detections);
+        } catch (error) {
+            console.error('Error fetching detection history:', error);
+        }
+    }
+
+    updateDetectionHistoryDisplay(detections) {
+        // Update the detection history panel with latest records from server
+        const historyContainer = document.getElementById('detectionHistory');
+        if (!historyContainer || !detections || detections.length === 0) return;
+        
+        // Keep system started message, clear rest
+        const systemStarted = Array.from(historyContainer.children).find(el => 
+            el.textContent.includes('System Started') || el.textContent.includes('system started')
+        );
+        
+        historyContainer.innerHTML = '';
+        if (systemStarted) historyContainer.appendChild(systemStarted);
+        
+        // Add detection records (most recent first)
+        detections.forEach(detection => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            
+            const confidence = Math.round(detection.confidence);
+            const timestamp = new Date(detection.timestamp);
+            const timeStr = timestamp.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            // Color code based on confidence
+            if (confidence >= 80) {
+                historyItem.style.borderLeftColor = 'var(--danger-color)';
+                historyItem.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+            } else if (confidence >= 60) {
+                historyItem.style.borderLeftColor = 'var(--warning-color)';
+                historyItem.style.backgroundColor = 'rgba(245, 158, 11, 0.1)';
+            }
+            
+            const locX = detection.location[0];
+            const locY = detection.location[1];
+            const peopleInfo = detection.people_detected > 0 ? 
+                `<strong style="color: #ff6b6b;">⚠️ ${detection.people_detected} person(s)</strong>` : 
+                'No people detected';
+            
+            historyItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><strong>${timeStr}</strong></span>
+                    <span style="font-weight: bold; color: ${confidence >= 80 ? 'var(--danger-color)' : 'var(--warning-color)'}">
+                        ${confidence}%
+                    </span>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    📍 Location: (${locX}, ${locY})
+                </div>
+                <div style="font-size: 0.85rem; margin-top: 0.3rem;">
+                    ${peopleInfo}
+                </div>
+            `;
+            
+            historyContainer.appendChild(historyItem);
+        });
     }
 
     initializeEventListeners() {
@@ -961,6 +1464,36 @@ function copyToClipboard(elementId) {
     document.execCommand('copy');
 }
 
+async function downloadDetectionHistory() {
+    // Download all detection history records as JSON file
+    try {
+        const response = await fetch('/api/detection_history/download');
+        const data = await response.json();
+        
+        // Create downloadable JSON file
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `fire_detections_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Log to dashboard
+        if (window && window.droneDashboard && typeof window.droneDashboard.addToLog === 'function') {
+            window.droneDashboard.addToLog(`✓ Downloaded ${data.total_records} detection records`);
+        }
+    } catch (error) {
+        console.error('Error downloading detection history:', error);
+        if (window && window.droneDashboard && typeof window.droneDashboard.addToLog === 'function') {
+            window.droneDashboard.addToLog(`✗ Failed to download detection history: ${error.message}`);
+        }
+    }
+}
+
 async function updateConnectedDevices() {
     try {
         const response = await fetch('/api/devices');
@@ -1032,30 +1565,91 @@ socket.on('connect', () => {
 
 socket.on('device_camera', (data) => {
     frameCounter++;
-    console.log(`📹 [${frameCounter}] Received device_camera from: ${data.device_name || data.device_id}`);
-    
     try {
         const img = document.getElementById('videoStream');
         const placeholder = document.getElementById('videoPlaceholder');
-        
+
         if (!img) {
-            console.error('❌ videoStream img element not found');
             return;
         }
-        
+
         if (data && data.frame_data && data.frame_data.length > 100) {
             img.src = data.frame_data;
             img.style.display = 'block';
             if (placeholder) placeholder.style.display = 'none';
-            
-            if (frameCounter % 5 === 0) {
-                console.log(`✓ Frame ${frameCounter} displayed (${(data.frame_data.length / 1024).toFixed(1)}KB)`);
+
+            if (frameCounter % 120 === 0) {
+                console.log(`Stream ${frameCounter} frames (~${(data.frame_data.length / 1024).toFixed(0)} KB)`);
             }
-        } else {
-            console.error('❌ Invalid frame data');
+        }
+
+        const th = document.getElementById('thermalStream');
+        const thPh = document.getElementById('thermalPlaceholder');
+        if (data.thermal_frame_data && data.thermal_frame_data.length > 80 && th) {
+            th.src = data.thermal_frame_data;
+            th.style.display = 'block';
+            if (thPh) thPh.style.display = 'none';
+        }
+        if (data.scene) {
+            applyTacticalScene({
+                spread: data.scene.spread,
+                priorities: data.scene.priorities,
+                scene_graph: data.scene.scene_graph,
+                people_count: data.scene.people_count,
+                person_in_fire: data.scene.person_in_fire,
+                person_model: data.scene.person_model,
+                frame_width: data.scene.frame_width,
+                frame_height: data.scene.frame_height,
+                area_border: data.scene.area_border,
+                entry_points: data.scene.entry_points,
+                best_entry: data.scene.best_entry,
+                safe_path: data.scene.safe_path,
+                fire_side: data.scene.fire_side,
+                fire_type: data.scene.fire_type,
+                fire_spread: data.scene.fire_spread,
+                person_zone: data.scene.person_zone,
+                trapped_persons: data.scene.trapped_persons,
+                ai_command: data.scene.ai_command,
+            });
         }
     } catch (e) {
-        console.error('❌ Error applying frame:', e);
+        console.error('device_camera:', e);
+    }
+});
+
+socket.on('scene_update', (data) => {
+    try {
+        const th = document.getElementById('thermalStream');
+        const thPh = document.getElementById('thermalPlaceholder');
+        if (data.thermal_frame_data && data.thermal_frame_data.length > 80 && th) {
+            th.src = data.thermal_frame_data;
+            th.style.display = 'block';
+            if (thPh) thPh.style.display = 'none';
+        }
+        if (data.scene) {
+            applyTacticalScene({
+                spread: data.scene.spread,
+                priorities: data.scene.priorities,
+                scene_graph: data.scene.scene_graph,
+                people_count: data.scene.people_count,
+                person_in_fire: data.scene.person_in_fire,
+                person_model: data.scene.person_model,
+                frame_width: data.scene.frame_width,
+                frame_height: data.scene.frame_height,
+                area_border: data.scene.area_border,
+                entry_points: data.scene.entry_points,
+                best_entry: data.scene.best_entry,
+                safe_path: data.scene.safe_path,
+                fire_side: data.scene.fire_side,
+                fire_type: data.scene.fire_type,
+                fire_spread: data.scene.fire_spread,
+                person_zone: data.scene.person_zone,
+                trapped_persons: data.scene.trapped_persons,
+                ai_command: data.scene.ai_command,
+            });
+        }
+    } catch (e) {
+        console.error('scene_update:', e);
     }
 });
 
@@ -1077,7 +1671,8 @@ socket.on('error', (error) => {
 });
 
 socket.onAny((event, ...args) => {
-    if (!event.startsWith('ping')) {
-        console.log(`[EVENT] ${event}:`, args[0]);
+    if (event.startsWith('ping') || event === 'device_camera' || event === 'scene_update') {
+        return;
     }
+    console.log(`[EVENT] ${event}:`, args[0]);
 });

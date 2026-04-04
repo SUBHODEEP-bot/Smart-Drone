@@ -339,8 +339,13 @@
         let stream = null;
         let gpsWatchId = null;
         let isRegistered = false;
-        let frameIntervalId = null;
         let statusIntervalId = null;
+        let streamRafId = null;
+        let streamCanvas = null;
+        let lastStreamSend = 0;
+        const STREAM_MAX_WIDTH = 640;
+        const TARGET_FPS = 18;
+        const FRAME_MIN_MS = 1000 / TARGET_FPS;
 
         // Initialize Socket.IO connection
         function initSocket() {
@@ -407,51 +412,44 @@
                 const video = document.getElementById('cameraStream');
                 video.srcObject = stream;
 
-                // Clear any existing intervals
-                if (frameIntervalId) clearInterval(frameIntervalId);
                 if (statusIntervalId) clearInterval(statusIntervalId);
+                stopStreamLoop();
 
-                // Wait for video to be ready before sending frames
                 video.onloadedmetadata = () => {
                     console.log('✅ Video loaded:', video.videoWidth, 'x', video.videoHeight);
-                    
-                    // Send camera frames every 500ms
-                    let framesSent = 0;
-                    frameIntervalId = setInterval(() => {
+                    if (!streamCanvas) {
+                        streamCanvas = document.createElement('canvas');
+                    }
+                    lastStreamSend = performance.now();
+                    function streamLoop(ts) {
+                        streamRafId = requestAnimationFrame(streamLoop);
                         if (!isRegistered || !stream) return;
-                        
+                        if (ts - lastStreamSend < FRAME_MIN_MS) return;
+                        lastStreamSend = ts;
                         try {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            
-                            if (canvas.width === 0 || canvas.height === 0) {
-                                return;
+                            let w = video.videoWidth;
+                            let h = video.videoHeight;
+                            if (!w || !h) return;
+                            if (w > STREAM_MAX_WIDTH) {
+                                h = Math.round((h * STREAM_MAX_WIDTH) / w);
+                                w = STREAM_MAX_WIDTH;
                             }
-                            
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(video, 0, 0);
-
-                            const frameData = canvas.toDataURL('image/jpeg', 0.7);
-                            if (!frameData || frameData.length < 100) {
-                                console.warn('⚠️ Frame too small:', frameData.length);
-                                return;
-                            }
-                            
+                            streamCanvas.width = w;
+                            streamCanvas.height = h;
+                            const ctx = streamCanvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, w, h);
+                            const frameData = streamCanvas.toDataURL('image/jpeg', 0.68);
+                            if (!frameData || frameData.length < 100) return;
                             socket.emit('send_camera_frame', {
                                 device_id: deviceId,
                                 link_code: linkCode,
                                 frame_data: frameData
                             });
-                            
-                            framesSent++;
-                            if (framesSent % 10 === 0) {
-                                console.log(`📤 Sent ${framesSent} frames (${(frameData.length/1024).toFixed(1)}KB)`);
-                            }
                         } catch (e) {
-                            console.error('❌ Error sending frame:', e);
+                            console.error('Frame send:', e);
                         }
-                    }, 500);
+                    }
+                    streamRafId = requestAnimationFrame(streamLoop);
                 };
                 
                 // Start requesting fire status every 2 seconds
@@ -471,11 +469,20 @@
             }
         }
 
+        function stopStreamLoop() {
+            if (streamRafId) {
+                cancelAnimationFrame(streamRafId);
+                streamRafId = null;
+            }
+        }
+
         // Stop camera
         function stopCamera() {
+            stopStreamLoop();
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 document.getElementById('cameraStream').srcObject = null;
+                stream = null;
             }
         }
 
