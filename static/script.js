@@ -404,7 +404,15 @@ class DroneDashboard {
                     ai_command: data.ai_command,
                 });
             }
-            
+            if (data.thermal_frame_data) {
+                const th = document.getElementById('thermalStream');
+                const thPh = document.getElementById('thermalPlaceholder');
+                if (th && data.thermal_frame_data.length > 80) {
+                    th.src = data.thermal_frame_data;
+                    th.style.display = 'block';
+                    if (thPh) thPh.style.display = 'none';
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch status:', error);
             this.updateSystemStatusError();

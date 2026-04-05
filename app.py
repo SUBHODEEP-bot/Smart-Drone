@@ -601,9 +601,9 @@ def astar_grid(cost_grid, start, goal):
     h = len(cost_grid)
     w = len(cost_grid[0]) if h else 0
     open_heap = []
-    heappush(open_heap, (0.0, start))
-    gscore = {start: 0.0}
+    heapq.heappush(open_heap, (0.0, start))
     came_from = {}
+    gscore = {start: 0.0}
 
     def neighbors(node):
         x, y = node
@@ -628,7 +628,7 @@ def astar_grid(cost_grid, start, goal):
                 came_from[neighbor] = current
                 gscore[neighbor] = tentative_g
                 priority = tentative_g + math.hypot(goal[0]-neighbor[0], goal[1]-neighbor[1])
-                heappush(open_heap, (priority, neighbor))
+                heapq.heappush(open_heap, (priority, neighbor))
 
     return []
 
@@ -2177,6 +2177,7 @@ def get_status():
     if last_scene_state:
         payload['spread'] = last_scene_state.get('spread')
         payload['priorities'] = last_scene_state.get('priorities')
+        payload['thermal_frame_data'] = last_scene_state.get('thermal_frame_data')
         payload['scene_graph'] = last_scene_state.get('scene_graph')
         payload['people_count'] = last_scene_state.get('people_count')
         payload['smoke_active'] = last_scene_state.get('smoke_active')
