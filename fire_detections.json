@@ -2642,5 +2642,532 @@
     "people_detected": 1,
     "person_in_fire": false,
     "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:07:48.138183",
+    "confidence": 75.60000000000001,
+    "location": [
+      446,
+      240
+    ],
+    "source_box": [
+      426,
+      220,
+      466,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:07.341723",
+    "confidence": 75.60000000000001,
+    "location": [
+      487,
+      240
+    ],
+    "source_box": [
+      467,
+      220,
+      507,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:23.633517",
+    "confidence": 70.70749056228891,
+    "location": [
+      505,
+      240
+    ],
+    "source_box": [
+      485,
+      220,
+      525,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:36.690175",
+    "confidence": 75.60000000000001,
+    "location": [
+      507,
+      234
+    ],
+    "source_box": [
+      487,
+      214,
+      527,
+      254
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:42.008998",
+    "confidence": 75.60000000000001,
+    "location": [
+      488,
+      240
+    ],
+    "source_box": [
+      468,
+      220,
+      508,
+      260
+    ],
+    "people_detected": 0,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:49.320925",
+    "confidence": 70.17424875077008,
+    "location": [
+      506,
+      240
+    ],
+    "source_box": [
+      486,
+      220,
+      526,
+      260
+    ],
+    "people_detected": 0,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:52.931779",
+    "confidence": 74.32045944005743,
+    "location": [
+      512,
+      240
+    ],
+    "source_box": [
+      492,
+      220,
+      532,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:08:59.195723",
+    "confidence": 75.55728314238954,
+    "location": [
+      503,
+      240
+    ],
+    "source_box": [
+      483,
+      220,
+      523,
+      260
+    ],
+    "people_detected": 0,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:11:53.663273",
+    "confidence": 75.60000000000001,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:12:03.534456",
+    "confidence": 75.60000000000001,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:14:43.623355",
+    "confidence": 75.60000000000001,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:14:46.874324",
+    "confidence": 67.87528845872971,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:15:20.349932",
+    "confidence": 75.60000000000001,
+    "location": [
+      518,
+      240
+    ],
+    "source_box": [
+      498,
+      220,
+      538,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:15:25.133660",
+    "confidence": 75.60000000000001,
+    "location": [
+      402,
+      240
+    ],
+    "source_box": [
+      382,
+      220,
+      422,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:15:38.649333",
+    "confidence": 65.61081976262766,
+    "location": [
+      474,
+      240
+    ],
+    "source_box": [
+      454,
+      220,
+      494,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:15:47.830789",
+    "confidence": 68.11569486056695,
+    "location": [
+      491,
+      240
+    ],
+    "source_box": [
+      471,
+      220,
+      511,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:16:26.083613",
+    "confidence": 75.60000000000001,
+    "location": [
+      448,
+      240
+    ],
+    "source_box": [
+      428,
+      220,
+      468,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:24:22.194889",
+    "confidence": 75.60000000000001,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 0,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:24:39.899228",
+    "confidence": 75.60000000000001,
+    "location": [
+      556,
+      220
+    ],
+    "source_box": [
+      536,
+      200,
+      576,
+      240
+    ],
+    "people_detected": 2,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:24:48.587414",
+    "confidence": 75.60000000000001,
+    "location": [
+      511,
+      240
+    ],
+    "source_box": [
+      491,
+      220,
+      531,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:24:59.231692",
+    "confidence": 68.12380122057542,
+    "location": [
+      438,
+      240
+    ],
+    "source_box": [
+      418,
+      220,
+      458,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:25:10.234319",
+    "confidence": 72.29897410845139,
+    "location": [
+      448,
+      231
+    ],
+    "source_box": [
+      428,
+      211,
+      468,
+      251
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:25:59.555606",
+    "confidence": 66.99115467367919,
+    "location": [
+      416,
+      240
+    ],
+    "source_box": [
+      396,
+      220,
+      436,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:26:48.634560",
+    "confidence": 75.60000000000001,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:27:13.627378",
+    "confidence": 72.98354583963048,
+    "location": [
+      320,
+      240
+    ],
+    "source_box": [
+      300,
+      220,
+      340,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:29:33.553135",
+    "confidence": 70.55927822482322,
+    "location": [
+      146,
+      240
+    ],
+    "source_box": [
+      126,
+      220,
+      166,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:30:29.950605",
+    "confidence": 65.20239564871967,
+    "location": [
+      479,
+      228
+    ],
+    "source_box": [
+      254,
+      427,
+      287,
+      464
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:30:33.640543",
+    "confidence": 75.60000000000001,
+    "location": [
+      175,
+      240
+    ],
+    "source_box": [
+      155,
+      220,
+      195,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:30:58.779426",
+    "confidence": 70.46802507836992,
+    "location": [
+      121,
+      240
+    ],
+    "source_box": [
+      101,
+      220,
+      141,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:31:04.646321",
+    "confidence": 75.60000000000001,
+    "location": [
+      89,
+      240
+    ],
+    "source_box": [
+      208,
+      147,
+      267,
+      197
+    ],
+    "people_detected": 0,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
+  },
+  {
+    "timestamp": "2026-04-05T10:31:15.378486",
+    "confidence": 73.15937224223055,
+    "location": [
+      122,
+      240
+    ],
+    "source_box": [
+      102,
+      220,
+      142,
+      260
+    ],
+    "people_detected": 1,
+    "person_in_fire": false,
+    "drone_status": "IDLE"
   }
 ]

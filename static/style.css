@@ -858,7 +858,7 @@ body {
 }
 
 .map-card {
-    min-height: 240px;
+    min-height: 320px;
     grid-column: 1 / -1;
 }
 
@@ -889,7 +889,7 @@ body {
 .tactical-map-wrap {
     position: relative;
     width: 100%;
-    height: 240px;
+    height: 320px;
     background: radial-gradient(ellipse at center, #1e293b 0%, #0f172a 100%);
     border-radius: 6px;
     border: 1px solid #334155;

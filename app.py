@@ -464,26 +464,33 @@ def _norm_center(box, w, h):
 def detect_area_border(frame):
     h, w = frame.shape[:2]
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7, 7), 0)
-    edges = cv2.Canny(blur, 60, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    blur = cv2.GaussianBlur(gray, (11, 11), 0)
+    edges = cv2.Canny(blur, 30, 100)
+    
+    kernel = np.ones((5, 5), np.uint8)
+    dilated = cv2.dilate(edges, kernel, iterations=2)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
     best_box = None
     best_area = 0
+    all_boxes = []
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 0.04 * w * h:
+        if area < 0.02 * w * h:
             continue
-        peri = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-        if len(approx) >= 4 and area > best_area:
-            x, y, bw, bh = cv2.boundingRect(approx)
-            best_box = (x, y, x + bw, y + bh)
+        x, y, bw, bh = cv2.boundingRect(cnt)
+        if bw > 0.95 * w and bh > 0.95 * h:
+            continue
+            
+        all_boxes.append((x, y, x + bw, y + bh))
+        if area > best_area:
             best_area = area
+            best_box = (x, y, x + bw, y + bh)
 
     if best_box is None:
-        return None, False
-    return best_box, True
+        return None, False, []
+    return best_box, True, all_boxes
 
 
 def approximate_direction_from_point(x, y, w, h):
@@ -1118,7 +1125,7 @@ def build_scene_state(frame_bgr, hazard_active=None, hazard_conf=None, hazard_lo
         latest_smoke_confidence,
     )
 
-    area_border_box, area_border_detected = detect_area_border(frame_bgr)
+    area_border_box, area_border_detected, all_border_boxes = detect_area_border(frame_bgr)
     entry_points = detect_openings(frame_bgr)
     structures = detect_doors_windows(frame_bgr)
     heat_analysis = compute_heat_analysis(
@@ -1194,6 +1201,7 @@ def build_scene_state(frame_bgr, hazard_active=None, hazard_conf=None, hazard_lo
             "box": [int(v) for v in area_border_box] if area_border_detected and area_border_box is not None else None,
             "label": "AREA BORDER DETECTED" if area_border_detected else "NOT DETECTED",
         },
+        "all_border_boxes": all_border_boxes,
         "entry_points": entry_points,
         "heat_values": heat_analysis.get('heat_values'),
         "heat_labels": heat_analysis.get('heat_labels'),
@@ -1291,16 +1299,13 @@ def detect_fire_yolo(frame, yolo_model=None):
                     gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
                     avg_brightness = np.mean(gray_roi)
                     
-                    # Fire detection criteria:
-                    # 1. High confidence from YOLO OR fire-like object
-                    # 2. Significant fire colors in ROI (at least 30%)
-                    # 3. High brightness (fire is bright)
-                    
-                    is_fire_like = (
-                        cls_name.lower() in ['fire', 'flame', 'smoke'] or
-                        fire_pixel_ratio > 0.3 or
-                        (avg_brightness > 200 and fire_pixel_ratio > 0.15)
-                    )
+                    is_fire_like = False
+                    if cls_name.lower() in ['fire', 'flame', 'smoke', 'oven', 'toaster', 'microwave']:
+                        is_fire_like = True
+                    elif cls_name.lower() in ['person', 'face', 'car', 'dog', 'cat', 'tv', 'laptop', 'cell phone', 'bottle', 'cup', 'chair', 'couch', 'bed']:
+                        is_fire_like = False
+                    else:
+                        is_fire_like = (fire_pixel_ratio > 0.4 and avg_brightness > 220)
                     
                     if is_fire_like:
                         # Calculate fire confidence based on multiple factors
@@ -1399,7 +1404,7 @@ def detect_fire_color_based(frame, previous_frame=None):
 
     # Method 2: Brightness detection (fire is bright - higher threshold to reduce false positives)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, bright_mask = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)  # Higher threshold
+    _, bright_mask = cv2.threshold(gray, 225, 255, cv2.THRESH_BINARY)  # Very strict threshold
 
     # Method 3: Motion/flicker detection
     motion_score = 0
@@ -1531,8 +1536,8 @@ def detect_fire_color_based(frame, previous_frame=None):
                 print(f"[DETECTION] ⚠️ Low variation: std_hue={std_hue:.1f}, std_value={std_value:.1f}")
             
             # Reject if brightness is too low
-            if avg_value < 180:
-                confidence *= 0.5
+            if avg_value < 220:
+                confidence *= 0.2
                 print(f"[DETECTION] ⚠️ Low brightness: {avg_value:.1f}")
 
             confidence = min(confidence, 100)
@@ -1971,8 +1976,37 @@ def detect_fire_hybrid(frame, prev_frame=None):
         )
         overlay_frame = draw_entry_direction_overlay(overlay_frame, last_scene_state)
         overlay_frame = draw_structures_overlay(overlay_frame, last_scene_state.get('structures', []))
+
+        # Draw Area Borders / Objects
+        border_state = last_scene_state.get('area_border', {})
+        if border_state.get('box'):
+            bx, by, bx2, by2 = border_state['box']
+            cv2.rectangle(overlay_frame, (bx, by), (bx2, by2), (255, 0, 255), 2)
+            cv2.putText(overlay_frame, "AREA BORDER / WALL", (bx, by - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+            
+        for bx, by, bx2, by2 in last_scene_state.get('all_border_boxes', []):
+            if border_state.get('box') and (bx, by, bx2, by2) == tuple(border_state['box']):
+                continue
+            cv2.rectangle(overlay_frame, (bx, by), (bx2, by2), (200, 0, 200), 1)
+            cv2.putText(overlay_frame, "OBSTACLE", (bx, by - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 0, 200), 1)
+
+        # Draw fire spread prediction arrow
+        if final_detected and last_scene_state.get('spread') and fire_source_box is not None:
+            spread = last_scene_state['spread']
+            if spread.get('degrees') is not None:
+                x1, y1, x2, y2 = fire_source_box
+                cx = (x1 + x2) // 2
+                cy = (y1 + y2) // 2
+                deg = spread['degrees']
+                arrow_len = 100
+                end_x = int(cx + arrow_len * math.cos(math.radians(deg)))
+                end_y = int(cy + arrow_len * math.sin(math.radians(deg)))
+                cv2.arrowedLine(overlay_frame, (cx, cy), (end_x, end_y), (0, 165, 255), 4, tipLength=0.3)
+                cv2.putText(overlay_frame, "HIGH SPREAD RISK", (end_x, end_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+
     except Exception as e:
-        app.logger.debug(f"draw_shortest_path_overlay: {e}")
+        app.logger.debug(f"draw overlays failed: {e}")
+
 
     # Save debug image when hazard confirmed for offline inspection
     try:
